@@ -34,9 +34,10 @@ var server = http.createServer(function(request, response) {
 server.listen(port);
 
 var wsServer = new WebSocketServer({httpServer: server});
-
+var clientConnections = [];
 wsServer.on('request', function(request) {
     var connection = request.accept('tailfsocket', request.origin);
+    clientConnections.push(connection);
     /* Show last 10 lines of the file on first request */
     if (currentWindow.length === 0) {
         fs.readFile(filePath, function (err, data) {
@@ -47,19 +48,30 @@ wsServer.on('request', function(request) {
     } else {
         connection.sendUTF(currentWindow.join("\n") + "\n");
     }
+});
 
-    fs.watchFile(filePath,
-                 {persistent: true, interval: 100},
-                 function (curr, prev) {
-        var buffer = new Buffer(" ".repeat(10000));
-        fs.read(fs.openSync(filePath, "r"), buffer, 0,
-                curr.size - prev.size + 1,
-                prev.size,
-                function (err, bytesRead, buffer) {
-            currentWindow.push.apply(currentWindow, buffer.toString().trim().split("\n"));
-            currentWindow = currentWindow.slice(-10);
-            connection.sendUTF(buffer.toString().trim() + "\n");
-            buffer = new Buffer(" ".repeat(10000));
-        });
+wsServer.on("close", function (webSocketConnection, closeReason, description) {
+    console.log("connection closed");
+});
+
+// Watch the file and send the updates to every client connection
+fs.watchFile(filePath,
+             {persistent: true, interval: 100},
+             function (curr, prev) {
+    var buffer = new Buffer(" ".repeat(10000));
+    fs.read(fs.openSync(filePath, "r"), buffer, 0,
+            curr.size - prev.size + 1,
+            prev.size,
+            function (err, bytesRead, buffer) {
+        var updates = buffer.toString().trim();
+        currentWindow.push.apply(currentWindow, updates.split("\n"));
+        currentWindow = currentWindow.slice(-10);
+        for (var i = 0 ; i < clientConnections.length ; ++i) {
+            if (!clientConnections[i].connected)
+                clientConnections.splice(i, 1);
+            if (clientConnections[i])
+                clientConnections[i].sendUTF(updates + "\n");
+        }
+        buffer = new Buffer(" ".repeat(10000));
     });
 });
