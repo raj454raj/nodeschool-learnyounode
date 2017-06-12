@@ -38,7 +38,7 @@ var wsServer = new WebSocketServer({httpServer: server});
 wsServer.on('request', function(request) {
     var connection = request.accept('tailfsocket', request.origin);
     /* Show last 10 lines of the file on first request */
-    if (currentWindow.length < 10) {
+    if (currentWindow.length === 0) {
         fs.readFile(filePath, function (err, data) {
             if (err) throw err;
             currentWindow = data.toString().split("\n").slice(-11, -1);
@@ -48,12 +48,11 @@ wsServer.on('request', function(request) {
         connection.sendUTF(currentWindow.join("\n") + "\n");
     }
 
-    var fd = fs.openSync(filePath, "r");
     fs.watchFile(filePath,
                  {persistent: true, interval: 100},
                  function (curr, prev) {
         var buffer = new Buffer(" ".repeat(10000));
-        fs.read(fd, buffer, 0,
+        fs.read(fs.openSync(filePath, "r"), buffer, 0,
                 curr.size - prev.size + 1,
                 prev.size,
                 function (err, bytesRead, buffer) {
