@@ -59,19 +59,21 @@ fs.watchFile(filePath,
              {persistent: true, interval: 100},
              function (curr, prev) {
     var buffer = new Buffer(" ".repeat(10000));
-    fs.read(fs.openSync(filePath, "r"), buffer, 0,
-            curr.size - prev.size + 1,
-            prev.size,
-            function (err, bytesRead, buffer) {
-        var updates = buffer.toString().trim();
-        currentWindow.push.apply(currentWindow, updates.split("\n"));
-        currentWindow = currentWindow.slice(-10);
-        for (var i = 0 ; i < clientConnections.length ; ++i) {
-            if (!clientConnections[i].connected)
-                clientConnections.splice(i, 1);
-            if (clientConnections[i])
-                clientConnections[i].sendUTF(updates + "\n");
-        }
-        buffer = new Buffer(" ".repeat(10000));
+    fs.open(filePath, "r", function(err, fd) {
+        fs.read(fd, buffer, 0,
+                curr.size - prev.size + 1,
+                prev.size,
+                function (err, bytesRead, buffer) {
+            var updates = buffer.toString().trim();
+            currentWindow.push.apply(currentWindow, updates.split("\n"));
+            currentWindow = currentWindow.slice(-10);
+            for (var i = 0 ; i < clientConnections.length ; ++i) {
+                if (!clientConnections[i].connected)
+                    clientConnections.splice(i, 1);
+                if (clientConnections[i])
+                    clientConnections[i].sendUTF(updates + "\n");
+            }
+            buffer = new Buffer(" ".repeat(10000));
+        });
     });
 });
