@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>tail -f</title>
+</head>
+<body>
+    <div id="tailf-response"></div>
+    <script type="text/javascript">
+        var tailSocket = new WebSocket("ws://localhost:8000/log", "tailfsocket");
+        tailSocket.onmessage = function (event) {
+            var response = event.data.replace(new RegExp("\n", "g"), "<br/>");
+            document.getElementById('tailf-response').innerHTML += response;
+        }
+    </script>
+</body>
+</html>
